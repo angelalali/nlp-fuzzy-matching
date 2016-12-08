@@ -13,6 +13,7 @@ from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 import pandas as pd
 
+
 # a function that normalizes strings by stripping punctuations, whitespaces, and cnovert to lower cases
 def normalize(s):
     for p in string.punctuation:
@@ -20,55 +21,58 @@ def normalize(s):
         s = s.replace(p, ' ')
     return s.lower()
 
-def fuzzyWordMatch(sap, legacy, sap_des_col, legacy_des_col, sap_field_col, legacy_field_col, outFile, num_match):
+def fuzzyWordMatch(tab1, tab2, tab1_des_col, tab2_des_col, tab1_field_col, tab2_field_col,
+                   outFile, num_match, data_type):
     """
     This function takes two sets of district-state names, and produces a DTA with a set number (default=3)
     of matches with a flag for whether the district name has been completely matched.
 
     Manual work is then required for districts where a perfect match has not been made.
 
-    sap: the SAP metadata description
-    legacy: the legacy metadata description
-    sap_des_col: column name of the column in sap that contains the description of the sap field names
-    legacy_des_col: column name of the column in legacy that contains the description of the legacy field names
-    sap_field_col: column name of the column in sap containing the sap field names
-    legacy_field_col: column name of the column in legacy containing the legacy field names
+    think of tab1 = sap, and tab2 = legacy!
+    tab1: the tab1 metadata description
+    tab2: the tab2 metadata description
+    tab1_des_col: column name of the column in tab1 that contains the description of the tab1 field names
+    tab2_des_col: column name of the column in tab2 that contains the description of the tab2 field names
+    tab1_field_col: column name of the column in tab1 containing the tab1 field names
+    tab2_field_col: column name of the column in tab2 containing the tab2 field names
     num_match: number of matches generated, default is 3
     outFile: includes path and filename for an outputted DTA file - should be "*.dta"
     """
 
-    sap_data = pd.read_csv(sap, quotechar='"', skipinitialspace=True, sep=',')
-    # print(" *** Now printing column values for sap file *** ")
-    # print(list(sap_data.columns.values))
+    tab1_data = pd.read_csv(tab1, quotechar='"', skipinitialspace=True, sep=',')
+    # print(" *** Now printing column values for tab1 file *** ")
+    # print(list(tab1_data.columns.values))
 
-    legacy_data = pd.read_csv(legacy, quotechar='"', skipinitialspace=True, sep=',')
-    # print(" *** Now printing column values for legacy file *** ")
-    # print(list(legacy_data.columns.values))
+    tab2_data = pd.read_csv(tab2, quotechar='"', skipinitialspace=True, sep=',')
+    # print(" *** Now printing column values for tab2 file *** ")
+    # print(list(tab2_data.columns.values))
 
     # store the texts in a diff obj
-    sap_text = sap_data[sap_des_col]
-    sap_fields = sap_data[sap_field_col]
-    legacy_text = legacy_data[legacy_des_col]
+    tab1_text = tab1_data[tab1_des_col]
+    tab1_fields = tab1_data[tab1_field_col]
+    tab2_text = tab2_data[tab2_des_col]
 
-    # normalize both sap & legacy text objects
-    sap_text_normalized = []
-    for text in sap_text:
-        sap_text_normalized.append(normalize(str(text)))
 
-    legacy_text_normalized = []
-    for text in legacy_text:
-        legacy_text_normalized.append(normalize(str(text)))
+    # normalize both tab1 & tab2 text objects
+    tab1_text_normalized = []
+    for text in tab1_text:
+        tab1_text_normalized.append(normalize(str(text)))
+
+    tab2_text_normalized = []
+    for text in tab2_text:
+        tab2_text_normalized.append(normalize(str(text)))
 
     # create top 3 match list using FuzzyWuzzy's built in process.extract() function, which default produce top 5 matches
-    top3_matche_list = [process.extract(x, sap_text_normalized, limit=num_match) for x in legacy_text_normalized]
+    top3_matche_list = [process.extract(x, tab1_text_normalized, limit=num_match) for x in tab2_text_normalized]
     # so the output is a tuple of 3 values!
     # fhp_new[x][y][z]
-    # x = [0-nrow(top3_matche_list)]; row number; basically which legacy word you are trying to match
+    # x = [0-nrow(top3_matche_list)]; row number; basically which tab2 word you are trying to match
     # y = [0-2]; which match; there are 3 for each word;
     # z = [0,1]; every match has two values: (match word, score btwn 0-100)
 
     # -- generate column names for the new table "match_info"
-    lab = "legacy_original"
+    lab = "tab2_original"
     lab_index = ""
     lab_score = ""
     i = 1
@@ -95,10 +99,10 @@ def fuzzyWordMatch(sap, legacy, sap_des_col, legacy_des_col, sap_field_col, lega
         descri_match = []
         score_match = []
         for row in top3_matche_list:
-            index_to_add = sap_text_normalized.index(row[i][0])
-            word_match.append(sap_fields.iloc[index_to_add])
+            index_to_add = tab1_text_normalized.index(row[i][0])
+            word_match.append(tab1_fields.iloc[index_to_add])
             # index_match.append(index_to_add)
-            descri_match.append(legacy_data[legacy_des_col].iloc[index_to_add])
+            descri_match.append(tab1_data[tab1_des_col].iloc[index_to_add])
             score_match.append(row[i][1])
         j = i+1
         match_info['Match{}'.format(j)] = word_match
@@ -106,12 +110,12 @@ def fuzzyWordMatch(sap, legacy, sap_des_col, legacy_des_col, sap_field_col, lega
         match_info['Description{}'.format(j)] = descri_match
         match_info['Score{}'.format(j)] = score_match
 
-    ## this dataframe d will be storing ALL your results, w first column being the original legacy column to match
+    ## this dataframe d will be storing ALL your results, w first column being the original tab2 column to match
     d = pd.DataFrame(columns=lab.split())
-    d['legacy_original'] = legacy_data[legacy_field_col]
-    # d['legacy_description'] = legacy_data[legacy_des_col]
+    d['tab2_original'] = tab2_data[tab2_field_col]
+    # d['tab2_description'] = tab2_data[tab2_des_col]
 
-    # d['legacy_original'] = legacy_data[legacy_des_col]
+    # d['tab2_original'] = tab2_data[tab2_des_col]
     # basically fill in all the columns in df d with matching column names in df match_info
     for x in range(1, num_match + 1):
         d["Match{}".format(x)] = [y for y in match_info['Match' + str(x)]]
@@ -120,12 +124,12 @@ def fuzzyWordMatch(sap, legacy, sap_des_col, legacy_des_col, sap_field_col, lega
         d["Score{}".format(x)] = [y for y in match_info['Score' + str(x)]]
 
     ### dont think the'll ever be perfect match or whether this info is usefl... so i dont think i need it
-    # d['perfect_match'] = d['Match1'] == d['legacy_original']
+    # d['perfect_match'] = d['Match1'] == d['tab2_original']
 
-    ### insert legacy data column description since they requested it
+    ### insert tab2 data column description since they requested it
     # using idx = 0 will insert at the beginning
     # df.insert(idx, col_name, value)
-    d.insert(1,'legacy_description', legacy_data[legacy_des_col])
+    d.insert(1,'tab2_description', tab2_data[tab2_des_col])
 
     out = pd.DataFrame(d)
     # out.to_stata(str(outFile + ".dta"))

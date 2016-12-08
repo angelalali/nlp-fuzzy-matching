@@ -21,9 +21,13 @@ field_mapping_file = os.path.join(outDir, "field_match_based_on_description.csv"
 
 
 # -- Directory into which matched results spreadsheet is saved
-outFile = os.path.join(outDir, "value mapping matches")
+outFile = os.path.join(outDir, "value mapping")
 match_vals = nfm.fuzzyWordMatch(sap_file, legacy_file, 'DESCRIPTION', 'DESCRIPTION', 'VALUE', 'VALUE', outFile, 1)
 # print(match_vals)
+
+legacy_value = pd.read_csv(legacy_file, quotechar='"', skipinitialspace=True, sep=',')
+match_vals.insert(0,'Column', legacy_value['COLUMN'])
+match_vals.to_csv(str(outFile + ".csv"))
 
 legacy_data = pd.read_csv(legacy_file, quotechar='"', skipinitialspace=True, sep=',')
 legacy_data = pd.DataFrame(legacy_data)
